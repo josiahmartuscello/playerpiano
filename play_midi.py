@@ -43,6 +43,7 @@ def reset_key():
     for x in range(88):
         tlc5947[x] = 0
     tlc5947.write()
+    # need to add a command to reset actuator
 
 
 def gen_calibration_file():
@@ -93,6 +94,8 @@ def playMidi(song_name, tempo=0):
 
     # Initialize SPI bus.
     spi = busio.SPI(clock=SCK, MOSI=MOSI)
+    
+    HBRIDGE = digitalio.DigitalInOut(board.D6)
 
     # Initialize TLC5947
     tlc5947 = adafruit_tlc5947.TLC5947(spi, LATCH, auto_write=False,
@@ -113,7 +116,7 @@ def playMidi(song_name, tempo=0):
 
     print('Tick length: ' + str(tickLength))
     currentTick = 0
-    notesArray[0] = [0 for x in range(89)]
+    notesArray[0] = [0 for x in range(90)]
     lineIncrement = 0
     for msg in mid:
         #print(msg)
@@ -124,8 +127,8 @@ def playMidi(song_name, tempo=0):
                     notesArray[lineIncrement][msg.note - 12] = msg.velocity
             else:
                 notesArray[lineIncrement][88] = delayAfter
-                notesArray.append([0 for x in range(89)])
-                for y in range(88) :
+                notesArray.append([0 for x in range(90)])
+                for y in range(88):
                     notesArray[lineIncrement+1][y] = notesArray[lineIncrement][y]
                 #notesArray.append(notesArray[lineIncrement])
                 lineIncrement += 1
@@ -133,10 +136,15 @@ def playMidi(song_name, tempo=0):
                 if msg.note < 89:
                     notesArray[lineIncrement][msg.note - 12] = msg.velocity
                     
-                notesArray.append([0 for x in range(89)])
+                notesArray.append([0 for x in range(90)])
                 for y in range(88) :
                     notesArray[lineIncrement+1][y] = notesArray[lineIncrement][y]
-                lineIncrement += 1                
+                lineIncrement += 1  
+        if msg.type is 'control_change' and msg.control is 64:
+            #append values to correct event in notesArray (might need to move this into above if statement).
+            
+
+        
                 
                 
                 
@@ -202,6 +210,10 @@ def playMidi(song_name, tempo=0):
         # time.sleep(tickLength)
         
         time.sleep(mido.tick2second(line[88], mid.ticks_per_beat, tempo) * 0.7)
+        
+        if notesArray[z][89] == 0 and notesArray[z+1][89] == 1: 
+            # if next even actuates sustain, actuate sustain early
+            HBRIDGE = 1
         
         for x in range(88):
             if notesArray[z+1][x] == 0:
